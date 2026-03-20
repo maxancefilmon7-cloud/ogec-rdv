@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OGEC La Providence – Planning des Entretiens</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- EmailJS -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+  <style>
+    @keyframes fadeIn  { from { opacity:0; transform:scale(.95) } to { opacity:1; transform:scale(1) } }
+    @keyframes fadeOut { from { opacity:1; transform:scale(1)  } to { opacity:0; transform:scale(.95) } }
+    .modal-enter { animation: fadeIn  .2s ease forwards }
+    .modal-leave { animation: fadeOut .2s ease forwards }
+    @keyframes slideUp   { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:translateY(0) } }
+    @keyframes slideDown { from { opacity:1; transform:translateY(0)    } to { opacity:0; transform:translateY(16px) } }
+    .toast-enter { animation: slideUp   .3s ease forwards }
+    .toast-leave { animation: slideDown .3s ease forwards }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-100 to-blue-50">
+
+<!-- ══ EN-TÊTE ══════════════════════════════════════════ -->
+<header class="bg-[#1E3A5F] text-white shadow-lg">
+  <div class="max-w-5xl mx-auto px-4 py-5 flex items-center gap-4">
+    <div class="bg-white rounded-full p-2 shadow flex-shrink-0">
+      <svg class="h-9 w-9 text-[#1E3A5F]" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 3L2 9v12h7v-7h6v7h7V9z"/>
+      </svg>
+    </div>
+    <div>
+      <h1 class="text-xl sm:text-2xl font-bold tracking-tight">OGEC La Providence</h1>
+      <p class="text-blue-200 text-xs sm:text-sm">Planning des Entretiens Individuels</p>
+    </div>
+  </div>
+</header>
+
+<!-- ══ INFO ══════════════════════════════════════════════ -->
+<div class="max-w-5xl mx-auto px-4 mt-5">
+  <div class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex gap-3 items-start text-sm text-blue-700">
+    <svg class="h-4 w-4 flex-shrink-0 mt-0.5 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm1 15h-2v-6h2zm0-8h-2V7h2z"/>
+    </svg>
+    Cliquez sur un créneau <strong class="mx-1">disponible</strong> pour réserver votre entretien.
+    Les créneaux <strong class="mx-1 text-gray-400">grisés</strong> sont déjà pris.
+  </div>
+</div>
+
+<!-- ══ GRILLE ════════════════════════════════════════════ -->
+<main class="max-w-5xl mx-auto px-4 py-6">
+  <div id="grille" class="grid grid-cols-1 md:grid-cols-3 gap-5"></div>
+</main>
+
+<footer class="text-center text-xs text-gray-400 pb-8">
+  © 2025 OGEC La Providence
+</footer>
+
+<!-- ══ MODAL ═════════════════════════════════════════════ -->
+<div id="modal-overlay"
+     class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 hidden"
+     onclick="fermerOverlay(event)">
+  <div id="modal-box" class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 modal-enter">
+
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h3 class="text-lg font-bold text-[#1E3A5F]">Réserver ce créneau</h3>
+        <p class="text-sm text-gray-500 mt-0.5">
+          <span id="modal-info" class="font-medium text-gray-700"></span>
+        </p>
+      </div>
+      <button onclick="fermerModal()" class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <form id="form-resa" onsubmit="valider(event)" novalidate class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
+        <input id="inp-nom" type="text" required autocomplete="family-name" placeholder="ex : DUPONT"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-[#1E3A5F] placeholder-gray-400"/>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Prénom *</label>
+        <input id="inp-prenom" type="text" required autocomplete="given-name" placeholder="ex : Marie"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-[#1E3A5F] placeholder-gray-400"/>
+      </div>
+
+      <p id="form-error" class="text-red-500 text-sm hidden"></p>
+
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="fermerModal()"
+                class="flex-1 border border-gray-300 text-gray-600 rounded-lg py-2.5 text-sm
+                       hover:bg-gray-50 transition font-medium">
+          Annuler
+        </button>
+        <button type="submit" id="btn-submit"
+                class="flex-1 bg-[#1E3A5F] text-white rounded-lg py-2.5 text-sm font-semibold
+                       hover:bg-[#16305a] transition flex items-center justify-center gap-2">
+          <span id="btn-label">Confirmer</span>
+          <svg id="btn-spin" class="hidden h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+        </button>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+<!-- ══ TOAST ═════════════════════════════════════════════ -->
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 hidden max-w-sm w-full px-4">
+  <div id="toast-inner" class="rounded-xl shadow-lg px-5 py-4 flex items-start gap-3 text-sm font-medium">
+    <svg id="toast-icon" class="h-5 w-5 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor"></svg>
+    <span id="toast-msg"></span>
+  </div>
+</div>
+
+
+<!-- ══ JAVASCRIPT ════════════════════════════════════════ -->
+<script>
+/* ─────────────────────────────────────────────────────────
+   ⚙️  CONFIGURATION  – remplissez ces 3 valeurs
+   (obtenus sur https://www.emailjs.com)
+───────────────────────────────────────────────────────── */
+const EMAILJS_PUBLIC_KEY  = "gq2MaPea_5LHr7DXn";
+const EMAILJS_SERVICE_ID  = "service_fm6uthg";
+const EMAILJS_TEMPLATE_ID = "template_5527f08";
+
+emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+
+/* ─────────────────────────────────────────────────────────
+   CRÉNEAUX
+───────────────────────────────────────────────────────── */
+const SLOTS = {
+  "Lundi":    ["8h30","8h50","9h10","9h30","9h50","10h10","10h30","10h50",
+               "11h10","11h30","11h50","12h10","13h30","13h50","14h10",
+               "14h30","14h50","15h10","15h30","15h50","16h10","16h30"],
+  "Mardi":    ["8h30","8h50","9h10","9h30","9h50","10h10","10h30","10h50",
+               "11h10","11h30","11h50","12h10","13h30","13h50","14h10",
+               "14h30","14h50","15h10","15h30","15h50","16h10","16h30"],
+  "Mercredi": ["8h30","8h50","9h10","9h30","9h50","10h10","10h30","10h50",
+               "11h10","11h30","11h50"],
+};
+
+/* ─────────────────────────────────────────────────────────
+   ÉTAT LOCAL (localStorage)
+───────────────────────────────────────────────────────── */
+function getBooked() {
+  return JSON.parse(localStorage.getItem("ogec_booked") || "[]");
+}
+function addBooked(jour, heure) {
+  const booked = getBooked();
+  booked.push(`${jour}|${heure}`);
+  localStorage.setItem("ogec_booked", JSON.stringify(booked));
+}
+function isPris(jour, heure) {
+  return getBooked().includes(`${jour}|${heure}`);
+}
+
+/* ─────────────────────────────────────────────────────────
+   RENDU DE LA GRILLE
+───────────────────────────────────────────────────────── */
+function renderGrille() {
+  const grille = document.getElementById("grille");
+  grille.innerHTML = "";
+
+  for (const [jour, slots] of Object.entries(SLOTS)) {
+    const libres = slots.filter(h => !isPris(jour, h)).length;
+
+    const col = document.createElement("div");
+    col.className = "bg-white rounded-2xl shadow-md overflow-hidden";
+    col.innerHTML = `
+      <div class="bg-[#1E3A5F] px-4 py-3 text-center">
+        <h2 class="text-white font-semibold text-lg">${jour}</h2>
+        <p class="text-blue-200 text-xs mt-0.5">${libres} créneau(x) disponible(s)</p>
+      </div>
+      <div class="p-4 flex flex-col gap-2">
+        ${slots.map(heure => {
+          if (isPris(jour, heure)) {
+            return `<button disabled
+              class="w-full flex items-center justify-between rounded-lg px-4 py-2.5
+                     bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200
+                     text-sm font-medium select-none">
+              <span>${heure}</span>
+              <span class="text-xs bg-gray-200 text-gray-400 px-2 py-0.5 rounded-full">Pris</span>
+            </button>`;
+          }
+          return `<button onclick="ouvrirModal('${jour}','${heure}')"
+            class="w-full flex items-center justify-between rounded-lg px-4 py-2.5
+                   bg-blue-50 hover:bg-[#1E3A5F] hover:text-white
+                   text-[#1E3A5F] border border-blue-200 hover:border-[#1E3A5F]
+                   transition-all duration-150 text-sm font-medium group cursor-pointer">
+            <span>${heure}</span>
+            <span class="text-xs bg-blue-100 group-hover:bg-blue-800 group-hover:text-white
+                         text-blue-600 px-2 py-0.5 rounded-full transition-colors">Libre</span>
+          </button>`;
+        }).join("")}
+      </div>`;
+
+    grille.appendChild(col);
+  }
+}
+
+renderGrille();
+
+/* ─────────────────────────────────────────────────────────
+   MODAL
+───────────────────────────────────────────────────────── */
+let selJour = "", selHeure = "";
+
+function ouvrirModal(jour, heure) {
+  selJour  = jour;
+  selHeure = heure;
+  document.getElementById("modal-info").textContent = `${jour} à ${heure}`;
+  document.getElementById("inp-nom").value    = "";
+  document.getElementById("inp-prenom").value = "";
+  document.getElementById("form-error").classList.add("hidden");
+
+  const overlay = document.getElementById("modal-overlay");
+  const box     = document.getElementById("modal-box");
+  overlay.classList.remove("hidden");
+  box.classList.remove("modal-leave");
+  box.classList.add("modal-enter");
+  setTimeout(() => document.getElementById("inp-nom").focus(), 50);
+}
+
+function fermerModal() {
+  const box = document.getElementById("modal-box");
+  box.classList.replace("modal-enter", "modal-leave");
+  setTimeout(() => document.getElementById("modal-overlay").classList.add("hidden"), 180);
+}
+
+function fermerOverlay(e) {
+  if (e.target === document.getElementById("modal-overlay")) fermerModal();
+}
+
+document.addEventListener("keydown", e => { if (e.key === "Escape") fermerModal(); });
+
+/* ─────────────────────────────────────────────────────────
+   VALIDATION & ENVOI EMAIL
+───────────────────────────────────────────────────────── */
+async function valider(e) {
+  e.preventDefault();
+
+  const nom    = document.getElementById("inp-nom").value.trim();
+  const prenom = document.getElementById("inp-prenom").value.trim();
+  const errDiv = document.getElementById("form-error");
+
+  if (!nom || !prenom) {
+    errDiv.textContent = "Veuillez renseigner votre nom et prénom.";
+    errDiv.classList.remove("hidden");
+    return;
+  }
+  errDiv.classList.add("hidden");
+
+  // État chargement
+  const btn   = document.getElementById("btn-submit");
+  const label = document.getElementById("btn-label");
+  const spin  = document.getElementById("btn-spin");
+  btn.disabled = true;
+  label.textContent = "Envoi…";
+  spin.classList.remove("hidden");
+
+  try {
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      jour:        selJour,
+      heure:       selHeure,
+      nom:         nom.toUpperCase(),
+      prenom:      prenom.charAt(0).toUpperCase() + prenom.slice(1).toLowerCase(),
+      to_email:    "maxancefilmon7@gmail.com",
+    });
+
+    // Marquer le créneau comme pris localement
+    addBooked(selJour, selHeure);
+    fermerModal();
+    renderGrille();
+    afficherToast(`Votre rendez-vous du ${selJour} à ${selHeure} a bien été enregistré. À bientôt !`, "success");
+
+  } catch (err) {
+    console.error(err);
+    errDiv.textContent = "Erreur lors de l'envoi. Vérifiez votre connexion ou contactez l'administration.";
+    errDiv.classList.remove("hidden");
+  } finally {
+    btn.disabled = false;
+    label.textContent = "Confirmer";
+    spin.classList.add("hidden");
+  }
+}
+
+/* ─────────────────────────────────────────────────────────
+   TOAST
+───────────────────────────────────────────────────────── */
+function afficherToast(message, type = "success") {
+  const inner = document.getElementById("toast-inner");
+  const icon  = document.getElementById("toast-icon");
+
+  document.getElementById("toast-msg").textContent = message;
+
+  if (type === "success") {
+    inner.className = "rounded-xl shadow-lg px-5 py-4 flex items-start gap-3 text-sm font-medium bg-green-50 text-green-800 border border-green-200";
+    icon.innerHTML  = '<path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm-1.5 14.5-4-4 1.41-1.41L10.5 13.67l5.59-5.59L17.5 9.5z"/>';
+    icon.className  = "h-5 w-5 flex-shrink-0 mt-0.5 text-green-500";
+  } else {
+    inner.className = "rounded-xl shadow-lg px-5 py-4 flex items-start gap-3 text-sm font-medium bg-red-50 text-red-800 border border-red-200";
+    icon.innerHTML  = '<path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm1 13h-2v-2h2zm0-4h-2V7h2z"/>';
+    icon.className  = "h-5 w-5 flex-shrink-0 mt-0.5 text-red-500";
+  }
+
+  const toast = document.getElementById("toast");
+  toast.classList.remove("hidden");
+  inner.classList.replace("toast-leave", "toast-enter");
+
+  setTimeout(() => {
+    inner.classList.replace("toast-enter", "toast-leave");
+    setTimeout(() => toast.classList.add("hidden"), 300);
+  }, 4500);
+}
+</script>
+
+</body>
+</html>
