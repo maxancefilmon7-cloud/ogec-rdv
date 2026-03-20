@@ -19,6 +19,12 @@
     @keyframes slideDown { from { opacity:1; transform:translateY(0)    } to { opacity:0; transform:translateY(16px) } }
     .toast-enter { animation: slideUp   .3s ease forwards }
     .toast-leave { animation: slideDown .3s ease forwards }
+
+    /* Boutons plus faciles à tapper sur mobile */
+    @media (max-width: 640px) {
+      .slot-btn { min-height: 52px; font-size: 1rem; }
+      #modal-box { margin: 1rem; padding: 1.25rem; }
+    }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-slate-100 to-blue-50">
@@ -39,15 +45,30 @@
 </header>
 
 <!-- ══ INFO ══════════════════════════════════════════════ -->
-<div class="max-w-5xl mx-auto px-4 mt-5">
+<div class="max-w-5xl mx-auto px-4 mt-5 flex flex-col gap-3">
+
+  <!-- Instruction réservation -->
   <div class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex gap-3 items-start text-sm text-blue-700">
     <svg class="h-4 w-4 flex-shrink-0 mt-0.5 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm1 15h-2v-6h2zm0-8h-2V7h2z"/>
     </svg>
-    Cliquez sur un créneau <strong class="mx-1">disponible</strong> pour réserver votre entretien individuel.
-    Chaque entretien dure <strong class="mx-1">25 minutes</strong>.
-    Les créneaux <strong class="mx-1 text-gray-400">grisés</strong> sont déjà pris.
+    <span>
+      Sélectionnez un créneau <strong>disponible</strong> pour réserver votre entretien individuel de <strong>25 minutes</strong>.
+      Les créneaux <strong class="text-gray-400">grisés</strong> sont déjà pris.
+    </span>
   </div>
+
+  <!-- Consignes pratiques -->
+  <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex gap-3 items-start text-sm text-amber-800">
+    <svg class="h-4 w-4 flex-shrink-0 mt-0.5 text-amber-500" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm1 13h-2v-2h2zm0-4h-2V7h2z"/>
+    </svg>
+    <span>
+      Le jour de votre entretien, <strong>présentez-vous à l'accueil</strong> à l'heure de votre créneau.
+      Vous serez pris en charge et conduit en <strong>salle de réunion A</strong>.
+    </span>
+  </div>
+
 </div>
 
 <!-- ══ GRILLE ════════════════════════════════════════════ -->
@@ -60,7 +81,7 @@
     </svg>
     Chargement du planning…
   </div>
-  <div id="grille" class="grid grid-cols-1 md:grid-cols-3 gap-5 hidden"></div>
+  <div id="grille" class="grid grid-cols-1 sm:grid-cols-3 gap-5 hidden"></div>
 </main>
 
 <footer class="text-center text-xs text-gray-400 pb-8">© 2025 OGEC La Providence</footer>
@@ -213,21 +234,23 @@ function renderGrille() {
         ${slots.map(heure => {
           if (bookedSlots[clé(jour, heure)]) {
             return `<button disabled
-              class="w-full flex items-center justify-between rounded-lg px-4 py-2.5
+              class="slot-btn w-full flex items-center justify-between rounded-xl px-4 py-3
                      bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200
                      text-sm font-medium select-none">
               <span>${plageHoraire(heure)}</span>
-              <span class="text-xs bg-gray-200 text-gray-400 px-2 py-0.5 rounded-full">Pris</span>
+              <span class="text-xs bg-gray-200 text-gray-400 px-2 py-1 rounded-full">Pris</span>
             </button>`;
           }
           return `<button onclick="ouvrirModal('${jour}','${heure}')"
-            class="w-full flex items-center justify-between rounded-lg px-4 py-2.5
-                   bg-blue-50 hover:bg-[#1E3A5F] hover:text-white
+            class="slot-btn w-full flex items-center justify-between rounded-xl px-4 py-3
+                   bg-blue-50 active:bg-[#1E3A5F] active:text-white
+                   hover:bg-[#1E3A5F] hover:text-white
                    text-[#1E3A5F] border border-blue-200 hover:border-[#1E3A5F]
                    transition-all duration-150 text-sm font-medium group cursor-pointer">
             <span>${plageHoraire(heure)}</span>
             <span class="text-xs bg-blue-100 group-hover:bg-blue-800 group-hover:text-white
-                         text-blue-600 px-2 py-0.5 rounded-full transition-colors">Libre</span>
+                         group-active:bg-blue-800 group-active:text-white
+                         text-blue-600 px-2 py-1 rounded-full transition-colors">Libre</span>
           </button>`;
         }).join("")}
       </div>`;
