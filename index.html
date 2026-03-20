@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OGEC La Providence – Planning des Entretiens</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- EmailJS -->
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
   <style>
     @keyframes fadeIn  { from { opacity:0; transform:scale(.95) } to { opacity:1; transform:scale(1) } }
@@ -49,19 +51,24 @@
 
 <!-- ══ GRILLE ════════════════════════════════════════════ -->
 <main class="max-w-5xl mx-auto px-4 py-6">
-  <div id="grille" class="grid grid-cols-1 md:grid-cols-3 gap-5"></div>
+  <!-- Chargement -->
+  <div id="loading" class="text-center py-20 text-gray-400">
+    <svg class="h-8 w-8 animate-spin mx-auto mb-3 text-[#1E3A5F]" viewBox="0 0 24 24" fill="none">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+    </svg>
+    Chargement du planning…
+  </div>
+  <div id="grille" class="grid grid-cols-1 md:grid-cols-3 gap-5 hidden"></div>
 </main>
 
-<footer class="text-center text-xs text-gray-400 pb-8">
-  © 2025 OGEC La Providence
-</footer>
+<footer class="text-center text-xs text-gray-400 pb-8">© 2025 OGEC La Providence</footer>
 
 <!-- ══ MODAL ═════════════════════════════════════════════ -->
 <div id="modal-overlay"
      class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 hidden"
      onclick="fermerOverlay(event)">
   <div id="modal-box" class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 modal-enter">
-
     <div class="flex items-center justify-between mb-5">
       <div>
         <h3 class="text-lg font-bold text-[#1E3A5F]">Réserver ce créneau</h3>
@@ -75,7 +82,6 @@
         </svg>
       </button>
     </div>
-
     <form id="form-resa" onsubmit="valider(event)" novalidate class="space-y-4">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
@@ -89,15 +95,11 @@
                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm
                       focus:outline-none focus:ring-2 focus:ring-[#1E3A5F] placeholder-gray-400"/>
       </div>
-
       <p id="form-error" class="text-red-500 text-sm hidden"></p>
-
       <div class="flex gap-3 pt-2">
         <button type="button" onclick="fermerModal()"
                 class="flex-1 border border-gray-300 text-gray-600 rounded-lg py-2.5 text-sm
-                       hover:bg-gray-50 transition font-medium">
-          Annuler
-        </button>
+                       hover:bg-gray-50 transition font-medium">Annuler</button>
         <button type="submit" id="btn-submit"
                 class="flex-1 bg-[#1E3A5F] text-white rounded-lg py-2.5 text-sm font-semibold
                        hover:bg-[#16305a] transition flex items-center justify-center gap-2">
@@ -109,7 +111,6 @@
         </button>
       </div>
     </form>
-
   </div>
 </div>
 
@@ -125,12 +126,29 @@
 <!-- ══ JAVASCRIPT ════════════════════════════════════════ -->
 <script>
 /* ─────────────────────────────────────────────────────────
-   ⚙️  CONFIGURATION  – remplissez ces 3 valeurs
-   (obtenus sur https://www.emailjs.com)
+   ⚙️  CONFIGURATION – remplissez ces valeurs
 ───────────────────────────────────────────────────────── */
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyC1q_4qazFFK26C0QXa4QOo9G4LhixoKD4",
+  authDomain:        "ogec-rdv.firebaseapp.com",
+  databaseURL:       "https://ogec-rdv-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "ogec-rdv",
+  storageBucket:     "ogec-rdv.firebasestorage.app",
+  messagingSenderId: "547796946898",
+  appId:             "1:547796946898:web:06369606864c5bfcf9020b",
+};
+
 const EMAILJS_PUBLIC_KEY  = "gq2MaPea_5LHr7DXn";
 const EMAILJS_SERVICE_ID  = "service_fm6uthg";
 const EMAILJS_TEMPLATE_ID = "template_5527f08";
+const EMAIL_DEST          = "maxancefilmon7@gmail.com";
+
+/* ─────────────────────────────────────────────────────────
+   INIT
+───────────────────────────────────────────────────────── */
+firebase.initializeApp(FIREBASE_CONFIG);
+const db     = firebase.database();
+const dbRef  = db.ref("reservations");
 
 emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
 
@@ -149,29 +167,28 @@ const SLOTS = {
 };
 
 /* ─────────────────────────────────────────────────────────
-   ÉTAT LOCAL (localStorage)
+   RENDU – écoute Firebase en temps réel
+   (mise à jour automatique pour tous les utilisateurs)
 ───────────────────────────────────────────────────────── */
-function getBooked() {
-  return JSON.parse(localStorage.getItem("ogec_booked") || "[]");
-}
-function addBooked(jour, heure) {
-  const booked = getBooked();
-  booked.push(`${jour}|${heure}`);
-  localStorage.setItem("ogec_booked", JSON.stringify(booked));
-}
-function isPris(jour, heure) {
-  return getBooked().includes(`${jour}|${heure}`);
+let bookedSlots = {};
+
+dbRef.on("value", (snapshot) => {
+  bookedSlots = snapshot.val() || {};
+  document.getElementById("loading").classList.add("hidden");
+  document.getElementById("grille").classList.remove("hidden");
+  renderGrille();
+});
+
+function clé(jour, heure) {
+  return `${jour}__${heure}`.replace(/:/g, "h");
 }
 
-/* ─────────────────────────────────────────────────────────
-   RENDU DE LA GRILLE
-───────────────────────────────────────────────────────── */
 function renderGrille() {
   const grille = document.getElementById("grille");
   grille.innerHTML = "";
 
   for (const [jour, slots] of Object.entries(SLOTS)) {
-    const libres = slots.filter(h => !isPris(jour, h)).length;
+    const libres = slots.filter(h => !bookedSlots[clé(jour, h)]).length;
 
     const col = document.createElement("div");
     col.className = "bg-white rounded-2xl shadow-md overflow-hidden";
@@ -182,7 +199,7 @@ function renderGrille() {
       </div>
       <div class="p-4 flex flex-col gap-2">
         ${slots.map(heure => {
-          if (isPris(jour, heure)) {
+          if (bookedSlots[clé(jour, heure)]) {
             return `<button disabled
               class="w-full flex items-center justify-between rounded-lg px-4 py-2.5
                      bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200
@@ -202,12 +219,9 @@ function renderGrille() {
           </button>`;
         }).join("")}
       </div>`;
-
     grille.appendChild(col);
   }
 }
-
-renderGrille();
 
 /* ─────────────────────────────────────────────────────────
    MODAL
@@ -243,7 +257,7 @@ function fermerOverlay(e) {
 document.addEventListener("keydown", e => { if (e.key === "Escape") fermerModal(); });
 
 /* ─────────────────────────────────────────────────────────
-   VALIDATION & ENVOI EMAIL
+   VALIDATION & RÉSERVATION
 ───────────────────────────────────────────────────────── */
 async function valider(e) {
   e.preventDefault();
@@ -259,7 +273,6 @@ async function valider(e) {
   }
   errDiv.classList.add("hidden");
 
-  // État chargement
   const btn   = document.getElementById("btn-submit");
   const label = document.getElementById("btn-label");
   const spin  = document.getElementById("btn-spin");
@@ -268,23 +281,39 @@ async function valider(e) {
   spin.classList.remove("hidden");
 
   try {
-    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-      jour:        selJour,
-      heure:       selHeure,
-      nom:         nom.toUpperCase(),
-      prenom:      prenom.charAt(0).toUpperCase() + prenom.slice(1).toLowerCase(),
-      to_email:    "maxancefilmon7@gmail.com",
+    const key = clé(selJour, selHeure);
+
+    // Vérifie en temps réel que le créneau est encore libre
+    const snap = await dbRef.child(key).get();
+    if (snap.exists()) {
+      errDiv.textContent = "Ce créneau vient d'être pris. Veuillez en choisir un autre.";
+      errDiv.classList.remove("hidden");
+      return;
+    }
+
+    // Écriture dans Firebase
+    await dbRef.child(key).set({
+      nom:    nom.toUpperCase(),
+      prenom: prenom.charAt(0).toUpperCase() + prenom.slice(1).toLowerCase(),
+      jour:   selJour,
+      heure:  selHeure,
     });
 
-    // Marquer le créneau comme pris localement
-    addBooked(selJour, selHeure);
+    // Envoi email
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      jour,
+      heure:   selHeure,
+      nom:     nom.toUpperCase(),
+      prenom:  prenom.charAt(0).toUpperCase() + prenom.slice(1).toLowerCase(),
+      to_email: EMAIL_DEST,
+    });
+
     fermerModal();
-    renderGrille();
     afficherToast(`Votre rendez-vous du ${selJour} à ${selHeure} a bien été enregistré. À bientôt !`, "success");
 
   } catch (err) {
     console.error(err);
-    errDiv.textContent = "Erreur lors de l'envoi. Vérifiez votre connexion ou contactez l'administration.";
+    errDiv.textContent = "Erreur lors de l'envoi. Réessayez ou contactez l'administration.";
     errDiv.classList.remove("hidden");
   } finally {
     btn.disabled = false;
@@ -299,7 +328,6 @@ async function valider(e) {
 function afficherToast(message, type = "success") {
   const inner = document.getElementById("toast-inner");
   const icon  = document.getElementById("toast-icon");
-
   document.getElementById("toast-msg").textContent = message;
 
   if (type === "success") {
@@ -315,7 +343,6 @@ function afficherToast(message, type = "success") {
   const toast = document.getElementById("toast");
   toast.classList.remove("hidden");
   inner.classList.replace("toast-leave", "toast-enter");
-
   setTimeout(() => {
     inner.classList.replace("toast-enter", "toast-leave");
     setTimeout(() => toast.classList.add("hidden"), 300);
