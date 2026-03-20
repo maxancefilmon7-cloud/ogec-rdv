@@ -44,7 +44,8 @@
     <svg class="h-4 w-4 flex-shrink-0 mt-0.5 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm1 15h-2v-6h2zm0-8h-2V7h2z"/>
     </svg>
-    Cliquez sur un créneau <strong class="mx-1">disponible</strong> pour réserver votre entretien.
+    Cliquez sur un créneau <strong class="mx-1">disponible</strong> pour réserver votre entretien individuel.
+    Chaque entretien dure <strong class="mx-1">25 minutes</strong>.
     Les créneaux <strong class="mx-1 text-gray-400">grisés</strong> sont déjà pris.
   </div>
 </div>
@@ -156,15 +157,25 @@ emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
    CRÉNEAUX
 ───────────────────────────────────────────────────────── */
 const SLOTS = {
-  "Lundi":    ["8h30","8h50","9h10","9h30","9h50","10h10","10h30","10h50",
-               "11h10","11h30","11h50","12h10","13h30","13h50","14h10",
-               "14h30","14h50","15h10","15h30","15h50","16h10","16h30"],
-  "Mardi":    ["8h30","8h50","9h10","9h30","9h50","10h10","10h30","10h50",
-               "11h10","11h30","11h50","12h10","13h30","13h50","14h10",
-               "14h30","14h50","15h10","15h30","15h50","16h10","16h30"],
-  "Mercredi": ["8h30","8h50","9h10","9h30","9h50","10h10","10h30","10h50",
-               "11h10","11h30","11h50"],
+  "Lundi":    ["13h15","13h40","14h05","14h30","14h55","15h20","15h45","16h10","16h35"],
+  "Mardi":    ["08h00","08h25","08h50","09h15","09h40","10h05","10h30","10h55","11h20"],
+  "Mercredi": ["08h00","08h25","08h50","09h15","09h40","10h05","10h30","10h55","11h20"],
 };
+
+const SOUS_TITRE = {
+  "Lundi":    "Après-midi",
+  "Mardi":    "Matin",
+  "Mercredi": "Matin",
+};
+
+// Calcule l'heure de fin (+25 min) pour l'affichage
+function plageHoraire(heure) {
+  const [h, m] = heure.split("h").map(Number);
+  const total  = h * 60 + m + 25;
+  const endH   = Math.floor(total / 60);
+  const endM   = (total % 60).toString().padStart(2, "0");
+  return `${heure} – ${endH}h${endM}`;
+}
 
 /* ─────────────────────────────────────────────────────────
    RENDU – écoute Firebase en temps réel
@@ -195,6 +206,7 @@ function renderGrille() {
     col.innerHTML = `
       <div class="bg-[#1E3A5F] px-4 py-3 text-center">
         <h2 class="text-white font-semibold text-lg">${jour}</h2>
+        <p class="text-blue-300 text-xs">${SOUS_TITRE[jour]}</p>
         <p class="text-blue-200 text-xs mt-0.5">${libres} créneau(x) disponible(s)</p>
       </div>
       <div class="p-4 flex flex-col gap-2">
@@ -204,7 +216,7 @@ function renderGrille() {
               class="w-full flex items-center justify-between rounded-lg px-4 py-2.5
                      bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200
                      text-sm font-medium select-none">
-              <span>${heure}</span>
+              <span>${plageHoraire(heure)}</span>
               <span class="text-xs bg-gray-200 text-gray-400 px-2 py-0.5 rounded-full">Pris</span>
             </button>`;
           }
@@ -213,7 +225,7 @@ function renderGrille() {
                    bg-blue-50 hover:bg-[#1E3A5F] hover:text-white
                    text-[#1E3A5F] border border-blue-200 hover:border-[#1E3A5F]
                    transition-all duration-150 text-sm font-medium group cursor-pointer">
-            <span>${heure}</span>
+            <span>${plageHoraire(heure)}</span>
             <span class="text-xs bg-blue-100 group-hover:bg-blue-800 group-hover:text-white
                          text-blue-600 px-2 py-0.5 rounded-full transition-colors">Libre</span>
           </button>`;
