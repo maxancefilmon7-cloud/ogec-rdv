@@ -291,7 +291,7 @@ async function valider(e) {
       return;
     }
 
-    // Écriture dans Firebase
+    // Écriture dans Firebase (réservation confirmée)
     await dbRef.child(key).set({
       nom:    nom.toUpperCase(),
       prenom: prenom.charAt(0).toUpperCase() + prenom.slice(1).toLowerCase(),
@@ -299,21 +299,21 @@ async function valider(e) {
       heure:  selHeure,
     });
 
-    // Envoi email
-    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-      jour,
-      heure:   selHeure,
-      nom:     nom.toUpperCase(),
-      prenom:  prenom.charAt(0).toUpperCase() + prenom.slice(1).toLowerCase(),
+    // Envoi email (non bloquant : si ça échoue, la réservation reste valide)
+    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      jour:     selJour,
+      heure:    selHeure,
+      nom:      nom.toUpperCase(),
+      prenom:   prenom.charAt(0).toUpperCase() + prenom.slice(1).toLowerCase(),
       to_email: EMAIL_DEST,
-    });
+    }).catch(err => console.warn("Email non envoyé :", err));
 
     fermerModal();
     afficherToast(`Votre rendez-vous du ${selJour} à ${selHeure} a bien été enregistré. À bientôt !`, "success");
 
   } catch (err) {
     console.error(err);
-    errDiv.textContent = "Erreur lors de l'envoi. Réessayez ou contactez l'administration.";
+    errDiv.textContent = "Erreur lors de la réservation. Réessayez ou contactez l'administration.";
     errDiv.classList.remove("hidden");
   } finally {
     btn.disabled = false;
